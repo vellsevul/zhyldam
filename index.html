@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#000000">
+<title>Zhyldam — мото-такси</title>
+<link rel="stylesheet" href="vendor/leaflet/leaflet.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+  <div id="map"></div>
+
+  <!-- top bar -->
+  <header class="topbar">
+    <button class="icon-btn" id="menuBtn" aria-label="Меню">☰</button>
+    <div class="logo">zhyldam<span>⚡</span></div>
+    <button class="icon-btn" id="locateBtn" aria-label="Моё местоположение">◎</button>
+  </header>
+
+  <!-- side menu -->
+  <aside class="drawer" id="drawer">
+    <div class="drawer-head">
+      <div class="avatar">A</div>
+      <div><b>Пассажир</b><small>★ 4.95</small></div>
+    </div>
+    <a>🕑 Мои поездки</a>
+    <a>💳 Оплата</a>
+    <a>🪖 Безопасность</a>
+    <a>🏍️ Стать водителем</a>
+    <a>⚙️ Настройки</a>
+    <p class="drawer-foot">Zhyldam — «быстрый» по-казахски</p>
+  </aside>
+  <div class="scrim" id="scrim"></div>
+
+  <!-- bottom sheet -->
+  <section class="sheet" id="sheet">
+    <div class="grabber"></div>
+
+    <!-- STEP: home -->
+    <div class="step" data-step="home">
+      <h2 class="greet">Куда мчим? 🏍️</h2>
+      <div class="route-inputs">
+        <div class="dot-line"><i class="d1"></i><i class="ln"></i><i class="d2"></i></div>
+        <div class="fields">
+          <input id="fromInput" value="Моё местоположение" readonly>
+          <input id="toInput" placeholder="Куда?" autocomplete="off">
+        </div>
+      </div>
+      <div class="suggest" id="suggest"></div>
+      <p class="hint">или нажми на карту, чтобы выбрать точку</p>
+    </div>
+
+    <!-- STEP: choose -->
+    <div class="step" data-step="choose">
+      <div class="step-head">
+        <button class="back" data-back="home">←</button>
+        <div class="trip-sum"><b id="tripTo">—</b><small id="tripMeta">—</small></div>
+      </div>
+
+      <div class="mode-switch" id="modeSwitch">
+        <button data-mode="fast" class="on">⚡ Быстро<small>фикс. цена, сразу</small></button>
+        <button data-mode="bargain">🤝 Торг<small>предложи свою цену</small></button>
+        <span class="pill"></span>
+      </div>
+
+      <div class="vehicles" id="vehicles"></div>
+
+      <div class="bargain-box" id="bargainBox">
+        <div class="bb-label">Твоя цена <small id="recPrice"></small></div>
+        <div class="bb-row">
+          <button class="pm" data-d="-100">−</button>
+          <div class="bb-price"><input id="offerInput" type="number" inputmode="numeric"><span>₸</span></div>
+          <button class="pm" data-d="100">+</button>
+        </div>
+        <div class="bb-warn" id="bbWarn"></div>
+      </div>
+
+      <div class="pay-row">
+        <button class="pay" id="payBtn">💵 Наличные ▾</button>
+        <label class="chk"><input type="checkbox" id="helmetChk" checked> 🪖 Нужен шлем</label>
+      </div>
+
+      <button class="cta" id="orderBtn">Заказать</button>
+    </div>
+
+    <!-- STEP: searching (fast) -->
+    <div class="step" data-step="search">
+      <div class="search-anim"><span></span><span></span><span></span><b>🏍️</b></div>
+      <h3 id="searchTitle">Ищем ближайшего райдера…</h3>
+      <p class="muted" id="searchSub">Обычно это занимает пару секунд</p>
+      <div class="progress"><i id="searchBar"></i></div>
+      <button class="ghost" id="cancelSearch">Отменить</button>
+    </div>
+
+    <!-- STEP: offers (bargain) -->
+    <div class="step" data-step="offers">
+      <div class="step-head">
+        <div class="trip-sum"><b>Предложения райдеров</b><small id="offersMeta">Ты предложил —</small></div>
+      </div>
+      <div class="offers" id="offers"><p class="muted center" id="offersEmpty">Ждём ответы райдеров…</p></div>
+      <div class="raise-row">
+        <button class="ghost sm" id="raiseBtn">Поднять цену +100 ₸</button>
+        <button class="ghost sm danger" id="cancelOffers">Отменить</button>
+      </div>
+    </div>
+
+    <!-- STEP: driver -->
+    <div class="step" data-step="driver">
+      <div class="eta-banner" id="etaBanner">Райдер будет через <b id="etaMin">3</b> мин</div>
+      <div class="driver-card">
+        <div class="avatar big" id="drvAvatar">Е</div>
+        <div class="drv-info">
+          <b id="drvName">Ерлан</b>
+          <small id="drvRating">★ 4.9 · 1 200 поездок</small>
+          <small id="drvBike">Honda PCX · 🛵</small>
+        </div>
+        <div class="plate" id="drvPlate">123 ABC 02</div>
+      </div>
+      <div class="price-line"><span>Стоимость</span><b id="drvPrice">0 ₸</b></div>
+      <div class="actions">
+        <button class="act">📞<small>Позвонить</small></button>
+        <button class="act">💬<small>Чат</small></button>
+        <button class="act">🛡️<small>Безопасность</small></button>
+        <button class="act danger" id="cancelRide">✕<small>Отмена</small></button>
+      </div>
+    </div>
+
+    <!-- STEP: done -->
+    <div class="step" data-step="done">
+      <div class="done-ico">🏁</div>
+      <h3>Домчали! Ты на месте</h3>
+      <p class="muted" id="doneSub">—</p>
+      <div class="stars" id="stars"><b>★</b><b>★</b><b>★</b><b>★</b><b>★</b></div>
+      <div class="tips"><button>200 ₸</button><button>500 ₸</button><button>1000 ₸</button></div>
+      <button class="cta" id="doneBtn">Готово</button>
+    </div>
+  </section>
+
+  <div class="toast" id="toast"></div>
+</div>
+
+<script src="vendor/leaflet/leaflet.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
