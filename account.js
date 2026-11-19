@@ -113,7 +113,7 @@ window.Account = (() => {
 
   // ---------- оплата ----------
   const cards = () => store.get('cards', []);
-  const PAY_BASE = [{ id: 'cash', ic: '💵', label: 'Наличные', sub: 'Райдеру при выходе' }, { id: 'kaspi', ic: '🔴', label: 'Kaspi QR', sub: 'Сканируешь QR в конце поездки' }];
+  const PAY_BASE = [{ id: 'cash', ic: '💵', label: 'Наличные', sub: 'Райдеру при выходе' }, { id: 'kaspi', ic: '🔴', label: 'Kaspi перевод', sub: 'Переводишь райдеру по номеру телефона в конце поездки' }];
   const payMethods = () => [...PAY_BASE, ...cards().map(c => ({ id: c.id, ic: '💳', label: `${c.brand} •••• ${c.last4}`, sub: `до ${c.exp} · ${c.holder || 'карта'}` }))];
   const currentPay = () => payMethods().find(m => m.id === store.get('pay', 'cash')) || PAY_BASE[0];
   const payListeners = new Set();
@@ -367,7 +367,7 @@ window.Account = (() => {
     if (s) {
       try {
         const last = history()[0];
-        const ctx = `Ты оператор службы поддержки Zhyldam: мото-такси в Алматы (мопеды, мотоциклы, спортбайки). Режимы заказа: «Быстро» (фиксированная цена) и «Торг» (пассажир предлагает цену, райдеры отвечают). Шлем для пассажира обязателен, его привозит райдер. Оплата: наличные, Kaspi QR, карта. Экстренная служба: 112. Отвечай по-русски, коротко (2–4 предложения), дружелюбно, без markdown. Не придумывай номера телефонов, суммы возврата и сроки, которых нет здесь. Возврат на карту идёт 1–3 рабочих дня. ${last ? `Последняя поездка клиента: ${last.fromName} → ${last.toName}, ${fmt(last.total)}, ${last.pay?.label}, чек № ${last.id.toUpperCase()}.` : ''}`;
+        const ctx = `Ты оператор службы поддержки Zhyldam: мото-такси в Алматы (мопеды, мотоциклы, спортбайки). Режимы заказа: «Быстро» (фиксированная цена) и «Торг» (пассажир предлагает цену, райдеры отвечают). Шлем для пассажира обязателен, его привозит райдер. Оплата: наличные, Kaspi перевод, карта. Экстренная служба: 112. Отвечай по-русски, коротко (2–4 предложения), дружелюбно, без markdown. Не придумывай номера телефонов, суммы возврата и сроки, которых нет здесь. Возврат на карту идёт 1–3 рабочих дня. ${last ? `Последняя поездка клиента: ${last.fromName} → ${last.toName}, ${fmt(last.total)}, ${last.pay?.label}, чек № ${last.id.toUpperCase()}.` : ''}`;
         const msgs = supportMsgs.slice(-10).map(m => ({ role: m.from === 'me' ? 'user' : 'assistant', content: m.text }));
         while (msgs.length && msgs[0].role !== 'user') msgs.shift();
         if (msgs.length) msgs[0] = { role: 'user', content: ctx + '\n\nКлиент: ' + msgs[0].content };

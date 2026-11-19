@@ -1,0 +1,13 @@
+{
+  "name": "zhyldam",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Zhyldam — мото-такси для Алматы: сайт и сервер живой связи",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

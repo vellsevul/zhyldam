@@ -90,7 +90,7 @@ window.Driver = (() => {
     const o = {
       id: Math.random().toString(36).slice(2, 8), live: false, name: pick(PASSENGERS), rating: rnd(4.5, 5).toFixed(1),
       from, fromName: Z.addressOf(from), to: dest.c, toName: dest.n, km: tr.km, rec, mode, share: Math.random() < .5,
-      price: mode === 'fast' ? rec : round50(rec * rnd(.75, 1.05)), pay: pick(['💵 Наличные', '🔴 Kaspi QR', '💳 Visa •••• 4242']), state: 'new', ttl: 20,
+      price: mode === 'fast' ? rec : round50(rec * rnd(.75, 1.05)), pay: pick(['💵 Наличные', '🔴 Kaspi перевод', '💳 Visa •••• 4242']), state: 'new', ttl: 20,
     };
     addPin(o); st.orders.set(o.id, o);
     T.later(() => { if (st.orders.get(o.id)?.state === 'new') { removeOrder(o.id); renderOrders(); } }, o.ttl * 1000);

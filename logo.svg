@@ -1,25 +1,27 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
   <defs>
-    <radialGradient id="sky" cx=".55" cy=".42" r=".75">
-      <stop offset="0" stop-color="#2e1057"/><stop offset=".55" stop-color="#140823"/><stop offset="1" stop-color="#050307"/>
+    <radialGradient id="sky" cx=".5" cy=".45" r=".75">
+      <stop offset="0" stop-color="#2e1057"/><stop offset=".6" stop-color="#140823"/><stop offset="1" stop-color="#060309"/>
     </radialGradient>
-    <linearGradient id="core" x1="0" y1="0" x2=".3" y2="1">
-      <stop offset="0" stop-color="#ffffff"/><stop offset=".5" stop-color="#f3e8ff"/><stop offset="1" stop-color="#e2c6ff"/>
+    <linearGradient id="fill" x1="0" y1="0" x2=".35" y2="1">
+      <stop offset="0" stop-color="#ffffff"/><stop offset=".45" stop-color="#f5ebff"/><stop offset="1" stop-color="#dcbcff"/>
     </linearGradient>
-    <filter id="glow" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="20"/></filter>
-    <filter id="soft" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="2.2"/></filter>
-    <!-- классическая молния с рваными краями -->
-    <path id="bolt" d="M318 44 L300 70 L304 78 L214 228 L236 230 L230 238 L282 242 L262 270 L272 274 L196 470 L206 452 L374 222 L354 220 L362 210 L300 206 L318 178 L310 174 L366 72 L352 70 Z"/>
-    <path id="br" d="M226 236 L184 262 L176 292 L150 310 M184 262 L148 258 M364 218 L404 240 L410 268 M300 206 L334 168 L362 162 M262 270 L224 300 L216 330"/>
+    <filter id="neon" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="18"/></filter>
+    <filter id="neon2" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="6"/></filter>
+    <!-- пухлая мультяшная молния -->
+    <path id="b" d="M300 58 L168 280 L252 280 L210 454 L352 222 L268 222 L318 58 Z"/>
   </defs>
   <rect width="512" height="512" rx="120" fill="url(#sky)"/>
-  <g stroke-linecap="round" stroke-linejoin="round">
-    <use href="#bolt" fill="#a855f7" stroke="#a855f7" stroke-width="40" filter="url(#glow)"/>
-    <use href="#br" fill="none" stroke="#9333ea" stroke-width="18" filter="url(#glow)"/>
-    <use href="#br" fill="none" stroke="#b061ff" stroke-width="9"/>
-    <use href="#br" fill="none" stroke="#fdf9ff" stroke-width="3"/>
-    <use href="#bolt" fill="#b061ff" stroke="#b061ff" stroke-width="18"/>
-    <use href="#bolt" fill="#e9d5ff" stroke="#d8b4fe" stroke-width="6" filter="url(#soft)"/>
-    <use href="#bolt" fill="url(#core)"/>
-  </g>
+  <!-- неоновое свечение трубки -->
+  <use href="#b" fill="none" stroke="#a855f7" stroke-width="64" stroke-linejoin="round" filter="url(#neon)" opacity=".95"/>
+  <use href="#b" fill="none" stroke="#c084fc" stroke-width="40" stroke-linejoin="round" filter="url(#neon2)"/>
+  <!-- толстый яркий контур -->
+  <use href="#b" fill="#b061ff" stroke="#b061ff" stroke-width="34" stroke-linejoin="round"/>
+  <!-- белый неоновый кант -->
+  <use href="#b" fill="none" stroke="#f3e8ff" stroke-width="14" stroke-linejoin="round" opacity=".9"/>
+  <!-- заливка -->
+  <use href="#b" fill="url(#fill)" stroke="url(#fill)" stroke-width="4" stroke-linejoin="round"/>
+  <!-- мультяшный блик -->
+  <path d="M292 92 L214 226" stroke="#ffffff" stroke-width="14" stroke-linecap="round" opacity=".95"/>
+  <circle cx="302" cy="76" r="7" fill="#fff"/>
 </svg>
