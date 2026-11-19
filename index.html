@@ -1,126 +1,110 @@
-<!doctype html>
-<html lang="ru">
-<head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Zhyldam</title>
 <meta name="theme-color" content="#0a0a0a">
 <link rel="icon" href="logo.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="logo.svg">
-<title>Zhyldam — мото-такси</title>
-<link rel="stylesheet" href="vendor/leaflet/leaflet.css">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="vendor/leaflet/leaflet.css">
 <link rel="stylesheet" href="style.css">
-</head>
-<body>
-<div id="app">
+
+<div id="app" class="mode-passenger">
   <div id="map"></div>
 
-  <!-- top bar -->
   <header class="topbar">
     <button class="icon-btn" id="menuBtn" aria-label="Меню">☰</button>
-    <div class="logo"><img src="logo.svg" alt=""><span>zhyldam</span></div>
+    <div class="logo"><img src="logo.svg" alt=""><span>zhyldam</span><em class="role-tag">райдер</em></div>
     <button class="icon-btn" id="locateBtn" aria-label="Моё местоположение">◎</button>
   </header>
 
-  <!-- side menu -->
   <aside class="drawer" id="drawer">
     <div class="drawer-head">
-      <div class="avatar">A</div>
-      <div><b>Пассажир</b><small>★ 4.95</small></div>
+      <div class="avatar" id="drawerAvatar">A</div>
+      <div><b id="drawerName">Пассажир</b><small id="drawerSub">★ 4.95</small></div>
     </div>
-    <a>🕑 Мои поездки</a>
-    <a>💳 Оплата</a>
-    <a>🪖 Безопасность</a>
-    <a>🏍️ Стать водителем</a>
-    <a>⚙️ Настройки</a>
-    <p class="drawer-foot"><img src="logo.svg" alt="" width="28" style="vertical-align:middle;margin-right:6px">Zhyldam — «быстрый» по-казахски</p>
+    <button class="dr-item role-switch" id="roleSwitch">🏍️ Стать райдером</button>
+    <button class="dr-item">🕑 Мои поездки</button>
+    <button class="dr-item">💳 Оплата</button>
+    <button class="dr-item">🪖 Безопасность</button>
+    <button class="dr-item">⚙️ Настройки</button>
+    <p class="drawer-foot"><img src="logo.svg" alt="" width="28">Zhyldam: «быстрый» по-казахски</p>
   </aside>
   <div class="scrim" id="scrim"></div>
 
-  <!-- bottom sheet -->
+  <!-- ============ ПАССАЖИР ============ -->
   <section class="sheet" id="sheet">
     <div class="grabber"></div>
 
-    <!-- STEP: home -->
     <div class="step" data-step="home">
-      <h2 class="greet">Куда мчим? <img src="logo.svg" alt="" width="30" style="vertical-align:-5px;border-radius:8px"></h2>
+      <h2 class="greet">Куда мчим? <img src="logo.svg" alt="" width="30"></h2>
       <div class="route-inputs">
         <div class="dot-line"><i class="d1"></i><i class="ln"></i><i class="d2"></i></div>
         <div class="fields">
-          <input id="fromInput" value="Моё местоположение" readonly>
-          <input id="toInput" placeholder="Куда?" autocomplete="off">
+          <input id="fromInput" value="Моё местоположение" readonly aria-label="Откуда">
+          <input id="toInput" placeholder="Куда?" autocomplete="off" aria-label="Куда">
         </div>
       </div>
       <div class="suggest" id="suggest"></div>
       <p class="hint">или нажми на карту, чтобы выбрать точку</p>
     </div>
 
-    <!-- STEP: choose -->
     <div class="step" data-step="choose">
       <div class="step-head">
-        <button class="back" data-back="home">←</button>
+        <button class="back" data-back="home" aria-label="Назад">←</button>
         <div class="trip-sum"><b id="tripTo">—</b><small id="tripMeta">—</small></div>
       </div>
-
-      <div class="mode-switch" id="modeSwitch">
+      <div class="mode-switch" id="modeSwitch" data-mode="fast">
         <button data-mode="fast" class="on">⚡ Быстро<small>фикс. цена, сразу</small></button>
         <button data-mode="bargain">🤝 Торг<small>предложи свою цену</small></button>
         <span class="pill"></span>
       </div>
-
       <div class="vehicles" id="vehicles"></div>
-
       <div class="bargain-box" id="bargainBox">
         <div class="bb-label">Твоя цена <small id="recPrice"></small></div>
         <div class="bb-row">
-          <button class="pm" data-d="-100">−</button>
-          <div class="bb-price"><input id="offerInput" type="number" inputmode="numeric"><span>₸</span></div>
-          <button class="pm" data-d="100">+</button>
+          <button class="pm" data-d="-100" aria-label="Минус 100">−</button>
+          <div class="bb-price"><input id="offerInput" type="number" inputmode="numeric" aria-label="Твоя цена"><span>₸</span></div>
+          <button class="pm" data-d="100" aria-label="Плюс 100">+</button>
         </div>
         <div class="bb-warn" id="bbWarn"></div>
       </div>
-
       <div class="pay-row">
         <button class="pay" id="payBtn">💵 Наличные ▾</button>
         <label class="chk"><input type="checkbox" id="helmetChk" checked> 🪖 Нужен шлем</label>
       </div>
-
       <button class="cta" id="orderBtn">Заказать</button>
     </div>
 
-    <!-- STEP: searching (fast) -->
     <div class="step" data-step="search">
       <div class="search-anim"><span></span><span></span><span></span><b><img src="logo.svg" alt="" width="56"></b></div>
-      <h3 id="searchTitle">Ищем ближайшего райдера…</h3>
-      <p class="muted" id="searchSub">Обычно это занимает пару секунд</p>
+      <h3>Ищем ближайшего райдера…</h3>
+      <p class="muted">Фиксированная цена: первый свободный уже едет</p>
       <div class="progress"><i id="searchBar"></i></div>
       <button class="ghost" id="cancelSearch">Отменить</button>
     </div>
 
-    <!-- STEP: offers (bargain) -->
     <div class="step" data-step="offers">
       <div class="step-head">
-        <div class="trip-sum"><b>Предложения райдеров</b><small id="offersMeta">Ты предложил —</small></div>
+        <div class="trip-sum"><b>Предложения райдеров</b><small id="offersMeta">—</small></div>
       </div>
-      <div class="offers" id="offers"><p class="muted center" id="offersEmpty">Ждём ответы райдеров…</p></div>
+      <div class="offers" id="offers"></div>
       <div class="raise-row">
         <button class="ghost sm" id="raiseBtn">Поднять цену +100 ₸</button>
         <button class="ghost sm danger" id="cancelOffers">Отменить</button>
       </div>
     </div>
 
-    <!-- STEP: driver -->
     <div class="step" data-step="driver">
-      <div class="eta-banner" id="etaBanner">Райдер будет через <b id="etaMin">3</b> мин</div>
+      <div class="eta-banner" id="etaBanner"></div>
       <div class="driver-card">
         <div class="avatar big" id="drvAvatar">Е</div>
         <div class="drv-info">
-          <b id="drvName">Ерлан</b>
-          <small id="drvRating">★ 4.9 · 1 200 поездок</small>
-          <small id="drvBike">Honda PCX · 🛵</small>
+          <b id="drvName">—</b>
+          <small id="drvRating">—</small>
+          <small id="drvBike">—</small>
         </div>
-        <div class="plate" id="drvPlate">123 ABC 02</div>
+        <div class="plate" id="drvPlate">—</div>
       </div>
       <div class="price-line"><span>Стоимость</span><b id="drvPrice">0 ₸</b></div>
       <div class="actions">
@@ -129,9 +113,13 @@
         <button class="act">🛡️<small>Безопасность</small></button>
         <button class="act danger" id="cancelRide">✕<small>Отмена</small></button>
       </div>
+      <div class="confirm" id="cancelConfirm" hidden>
+        <span>Отменить поездку?</span>
+        <button class="ghost sm" id="cancelNo">Нет</button>
+        <button class="ghost sm danger" id="cancelYes">Да, отменить</button>
+      </div>
     </div>
 
-    <!-- STEP: done -->
     <div class="step" data-step="done">
       <div class="done-ico">🏁</div>
       <h3>Домчали! Ты на месте</h3>
@@ -142,10 +130,67 @@
     </div>
   </section>
 
+  <!-- ============ РАЙДЕР ============ -->
+  <section class="sheet dark" id="dsheet">
+    <div class="grabber"></div>
+
+    <div class="dstep" data-dstep="setup">
+      <h2 class="greet">Стань райдером <img src="logo.svg" alt="" width="30"></h2>
+      <p class="muted">Возишь людей на своём байке, сам выбираешь заказы и торгуешься.</p>
+      <label class="fld"><span>Имя</span><input id="dName" maxlength="30"></label>
+      <label class="fld"><span>Модель байка</span><input id="dBike" maxlength="40"></label>
+      <div class="fld"><span>Класс</span><div class="chips" id="dVeh"></div></div>
+      <label class="fld"><span>Госномер</span><input id="dPlate" maxlength="16"></label>
+      <button class="cta" id="dStart">Выйти на линию</button>
+    </div>
+
+    <div class="dstep" data-dstep="online">
+      <div class="d-top">
+        <button class="online-toggle on" id="dOnline"><i></i><span>На линии</span></button>
+        <div class="earn"><b id="dEarn">0 ₸</b><small id="dTrips">0 поездок сегодня</small></div>
+      </div>
+      <div class="d-orders-head"><b>Заказы рядом</b><small id="dOrdersMeta">ищем пассажиров…</small></div>
+      <div class="orders" id="dOrders"></div>
+    </div>
+
+    <div class="dstep" data-dstep="trip">
+      <div class="eta-banner" id="dBanner"></div>
+      <div class="driver-card">
+        <div class="avatar big" id="pAvatar">А</div>
+        <div class="drv-info">
+          <b id="pName">—</b>
+          <small id="pRating">—</small>
+          <small id="pRoute">—</small>
+        </div>
+        <div class="trip-price" id="pPrice">0 ₸</div>
+      </div>
+      <div class="trip-tags" id="pTags"></div>
+      <button class="cta" id="dAction">—</button>
+      <div class="actions three">
+        <button class="act">📞<small>Позвонить</small></button>
+        <button class="act">💬<small>Чат</small></button>
+        <button class="act danger" id="dCancel">✕<small>Отмена</small></button>
+      </div>
+      <div class="confirm" id="dCancelConfirm" hidden>
+        <span>Отменить заказ? Это снизит рейтинг.</span>
+        <button class="ghost sm" id="dCancelNo">Нет</button>
+        <button class="ghost sm danger" id="dCancelYes">Отменить</button>
+      </div>
+    </div>
+
+    <div class="dstep" data-dstep="done">
+      <div class="done-ico">💸</div>
+      <h3 id="dDoneTitle">+0 ₸</h3>
+      <p class="muted" id="dDoneSub">—</p>
+      <div class="stars static"><b class="on">★</b><b class="on">★</b><b class="on">★</b><b class="on">★</b><b class="on">★</b></div>
+      <button class="cta" id="dDoneBtn">К заказам</button>
+    </div>
+  </section>
+
   <div class="toast" id="toast"></div>
 </div>
 
 <script src="vendor/leaflet/leaflet.js"></script>
+<script src="map.js"></script>
 <script src="app.js"></script>
-</body>
-</html>
+<script src="driver.js"></script>
