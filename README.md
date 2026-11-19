@@ -3,7 +3,8 @@
 **Жылдам** — «быстрый» по-казахски. Черновик приложения мото-такси для Алматы: мопеды, мотоциклы, спортбайки.
 
 **Открыть:**
-- https://zhyldam.vercel.app — сайт с настоящей картой и GPS
+- https://vellsevul.github.io/zhyldam/ — сайт с настоящей картой и GPS (GitHub Pages)
+- https://zhyldam.vercel.app — тот же сайт на Vercel (у некоторых провайдеров не открывается)
 - https://claude.ai/artifact/QCBoNC88W9YtV85PdQyxkU — приватная версия на claude.ai с живой связью
 
 ## Что умеет
