@@ -1,0 +1,9 @@
+# Render: бесплатный веб-сервис (засыпает после 15 минут без посетителей)
+services:
+  - type: web
+    name: zhyldam
+    runtime: node
+    plan: free
+    buildCommand: "true"
+    startCommand: node server.js
+    healthCheckPath: /rt/health

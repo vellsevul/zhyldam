@@ -55,27 +55,55 @@ window.Passenger = (() => {
   $$('[data-back]').forEach(b => b.onclick = () => { clearRoute(); go(b.dataset.back); centerHome(); });
   const centerHome = () => Z.centerOn(st.from, 15);
 
-  // ---------- откуда: геолокация ----------
-  function setFrom(p, label) {
+  // ---------- откуда: точный GPS ----------
+  // Пока пассажир сам не передвинул пин, точка посадки следует за GPS.
+  let accCircle = null, stopWatch = null, gpsWarned = false;
+  function setFrom(p, label, gps) {
     st.from = p;
-    st.fromName = label || Z.addressOf(p);
     meMarker.setLatLng(p);
-    $('#fromText').textContent = st.fromName;
+    const prefix = gps ? '📍 ' : '';
+    const acc = gps && st.acc ? ` · ±${st.acc} м` : '';
+    st.fromName = label || Z.addressOf(p);
+    $('#fromText').textContent = prefix + st.fromName + acc;
     renderSuggest($('#toInput').value);
+    if (!label) Z.reverse(p).then(txt => {
+      if (st.from !== p || !txt) return;
+      st.fromName = txt; $('#fromText').textContent = prefix + txt + acc;
+    });
   }
-  async function locateMe(manual) {
-    $('#fromText').textContent = 'Определяем, где ты…';
-    const p = await Z.locate();
-    if (p && Z.inCity(p)) { setFrom(p, '📍 ' + Z.addressOf(p)); st.located = true; if (manual) toast('📍 Нашли тебя'); }
-    else {
-      setFrom(st.located ? st.from : DEFAULT_HOME);
-      toast(p ? 'Ты вне Алматы, поставили точку в центре. Поправь её' : 'Не получилось определить геопозицию. Проверь точку посадки');
+  function onGps({ ll, acc }) {
+    const firstFix = !st.gps;
+    st.gps = ll; st.acc = acc;
+    if (!accCircle) accCircle = L.circle(ll, { radius: acc, color: '#7c3aed', weight: 1, fillColor: '#7c3aed', fillOpacity: .08, interactive: false }).addTo(layer);
+    else { accCircle.setLatLng(ll); accCircle.setRadius(acc); }
+    if (st.manualFrom) return;
+    if (!Z.real.on && !Z.inCity(ll)) {
+      if (firstFix) { setFrom(DEFAULT_HOME); toast('Ты вне Алматы, поставили точку в центре. Поправь её'); centerHome(); }
+      return;
     }
-    if (st.step === 'home') centerHome();
+    if (firstFix || hav(ll, st.from) > .015) {
+      setFrom(ll, null, true);
+      if (firstFix) { st.located = true; if (st.step === 'home') centerHome(); toast(`📍 Нашли тебя, точность ±${acc} м`); }
+      if (st.ride && st.ride.share) publishRide();
+    }
+  }
+  function startGps() {
+    $('#fromText').textContent = 'Определяем, где ты…';
+    stopWatch && stopWatch();
+    stopWatch = Z.watch(onGps, why => {
+      if (st.gps) return;
+      setFrom(st.from);
+      if (!gpsWarned) { gpsWarned = true; toast(why === 'denied' ? 'Доступ к геопозиции запрещён. Поставь точку посадки вручную' : 'Не получилось определить геопозицию. Проверь точку посадки'); }
+    });
+  }
+  function locateMe() {
+    st.manualFrom = false;
+    if (st.gps) { setFrom(st.gps, null, true); Z.centerOn(st.gps, 16); toast(`📍 Ты здесь, точность ±${st.acc} м`); }
+    else { gpsWarned = false; startGps(); }
   }
 
   // ---------- выбор точки на карте ----------
-  let pickKind = 'from', pickLL = null;
+  let pickKind = 'from', pickLL = null, pickSeq = 0;
   function startPick(kind) {
     pickKind = kind;
     go('pick');
@@ -83,47 +111,78 @@ window.Passenger = (() => {
     $('#pickDot').className = kind === 'to' ? 'to' : '';
     $('#pickDone').textContent = kind === 'from' ? 'Заберите меня здесь' : 'Еду сюда';
     if (kind === 'from') layer.removeLayer(meMarker);
-    Z.centerOn(kind === 'from' ? st.from : (st.to || st.from), 16);
-    stopPicker = Z.startPicker(kind, p => { pickLL = p; $('#pickAddr').textContent = Z.addressOf(p); });
+    Z.centerOn(kind === 'from' ? st.from : (st.to || st.from), 17);
+    stopPicker = Z.startPicker(kind, p => {
+      pickLL = p; const seq = ++pickSeq;
+      $('#pickAddr').textContent = Z.addressOf(p);
+      Z.reverse(p).then(txt => { if (seq === pickSeq && txt) $('#pickAddr').textContent = txt; });
+    });
   }
   function endPick() { stopPicker && stopPicker(); stopPicker = null; meMarker.addTo(layer); }
   $('#fromBtn').onclick = () => startPick('from');
   $('#pickToBtn').onclick = () => startPick('to');
   $('#pickBack').onclick = () => { endPick(); go('home'); centerHome(); };
   $('#pickDone').onclick = () => {
-    const p = pickLL || Z.pickedLatLng();
+    const p = pickLL || Z.pickedLatLng(), label = $('#pickAddr').textContent;
     endPick();
-    if (pickKind === 'from') { setFrom(p); st.located = false; go('home'); centerHome(); toast('Точка посадки обновлена'); }
-    else setDest({ n: Z.addressOf(p), c: p });
+    if (pickKind === 'from') { st.manualFrom = true; setFrom(p, label); go('home'); centerHome(); toast('Точка посадки обновлена. ◎ вернёт к GPS'); }
+    else setDest({ n: label, c: p });
   };
 
   // ---------- куда ----------
+  let searchT = null, searchSeq = 0, found = [];
   function renderSuggest(q = '') {
     const list = PLACES.filter(p => (p.n + p.a).toLowerCase().includes(q.toLowerCase()))
       .map(p => ({ p, d: hav(st.from, p.c) })).sort((a, b) => a.d - b.d);
-    $('#suggest').innerHTML = list.map(({ p, d }) =>
+    const real = found.map((p, i) => `<button class="sg" data-f="${i}"><span class="ic">${p.ic}</span><span><b>${esc(p.n)}</b><small>${esc(p.a)}</small></span><span class="km">${hav(st.from, p.c).toFixed(1)} км</span></button>`).join('');
+    $('#suggest').innerHTML = real + list.map(({ p, d }) =>
       `<button class="sg" data-i="${PLACES.indexOf(p)}"><span class="ic">${p.ic}</span><span><b>${p.n}</b><small>${p.a}</small></span><span class="km">${d.toFixed(1)} км</span></button>`
     ).join('') || '<p class="muted center">Ничего не нашли. Укажи точку на карте 📌</p>';
-    $$('.sg').forEach(b => b.onclick = () => setDest(PLACES[b.dataset.i]));
+    $$('.sg[data-i]').forEach(b => b.onclick = () => setDest(PLACES[b.dataset.i]));
+    $$('.sg[data-f]').forEach(b => b.onclick = () => setDest(found[b.dataset.f]));
   }
-  $('#toInput').oninput = e => renderSuggest(e.target.value);
+  $('#toInput').oninput = e => {
+    const q = e.target.value;
+    found = []; renderSuggest(q);
+    clearTimeout(searchT);
+    if (!Z.real.on || q.trim().length < 3) return;
+    const seq = ++searchSeq;
+    searchT = setTimeout(async () => {
+      const r = await Z.search(q, st.from);
+      if (seq !== searchSeq) return;
+      found = r; renderSuggest(q);
+    }, 600);
+  };
   map.on('click', e => {
     if (!map.hasLayer(layer) || st.step !== 'home') return;
     const p = [e.latlng.lat, e.latlng.lng];
-    setDest({ n: Z.addressOf(p), c: p });
+    Z.reverse(p).then(n => setDest({ n, c: p }));
   });
 
-  function setDest(p) {
+  let destSeq = 0;
+  async function setDest(p) {
     if (hav(st.from, p.c) < .3) { toast('Слишком близко, это можно пройти пешком 🙂'); go('home'); return; }
     st.to = p.c; st.toName = p.n;
-    VEHICLES.forEach(v => { st.trips[v.id] = Z.trip(st.from, st.to, v); });
-    drawMainRoute();
+    const seq = ++destSeq;
     $('#tripTo').textContent = p.n;
-    const t = tripOf(st.veh), sc = t.score;
-    $('#tripMeta').innerHTML = `${t.km.toFixed(1)} км по улицам · пробки <span class="score ${sc < 4 ? 'g' : sc < 7 ? 'y' : 'r'}">${sc}</span> на маршруте`;
-    $('#shareChk').checked = store.get('share', false);
-    renderVehicles(); syncOffer(true); syncPay();
     go('choose');
+    // сразу показываем примерный расчёт, затем уточняем по настоящим дорогам
+    VEHICLES.forEach(v => { st.trips[v.id] = Z.trip(st.from, st.to, v); });
+    const paint = () => {
+      const t = tripOf(st.veh), sc = t.score;
+      $('#tripMeta').innerHTML = `${t.km.toFixed(1)} км ${t.real ? 'по дорогам' : Z.real.on ? 'примерно, строим маршрут…' : 'по улицам'} · пробки <span class="score ${sc < 4 ? 'g' : sc < 7 ? 'y' : 'r'}">${sc}</span> на маршруте`;
+      renderVehicles(); syncOffer(true);
+    };
+    if (!Z.real.on) drawMainRoute(); else { clearRoute(); destMarker = L.marker(st.to, { icon: icon('', 'mk-dest', [18, 18]) }).addTo(layer); }
+    $('#shareChk').checked = store.get('share', false);
+    paint(); syncPay();
+    if (Z.real.on) {
+      const trips = await Promise.all(VEHICLES.map(v => Z.tripAsync(st.from, st.to, v)));
+      if (seq !== destSeq) return;
+      VEHICLES.forEach((v, i) => { st.trips[v.id] = trips[i]; });
+      drawMainRoute(); paint();
+      if (!trips[0].real) toast('Не удалось построить маршрут по дорогам, показан примерный');
+    }
   }
   function drawMainRoute() {
     clearRoute();
@@ -184,7 +243,7 @@ window.Passenger = (() => {
   const liveDrivers = () => Live.drivers().filter(d => d.presence.profile && d.presence.profile.veh === st.veh && !d.presence.trip);
   function publishRide() {
     if (!st.ride) { Live.set({ role: 'passenger', ride: null, loc: null, chat: null }); return; }
-    Live.set({ role: 'passenger', ride: st.ride, loc: st.ride.share ? LL(st.from) : null });
+    Live.set({ role: 'passenger', ride: st.ride, loc: st.ride.share ? LL(st.gps && !st.manualFrom ? st.gps : st.from) : null });
   }
   function newRide(price) {
     const t = tripOf(st.veh);
@@ -356,13 +415,14 @@ window.Passenger = (() => {
   }
 
   // бот-райдер: всё анимируется здесь
-  function assignBot(d, price) {
+  async function assignBot(d, price) {
     st.live = false; st.livePeer = null;
     st.ride.status = 'assigned'; st.ride.finalPrice = price;
     st.ride.sim = { profile: { name: d.name, bike: d.bike, em: d.em, plate: d.plate, rating: d.rating }, stage: 'toPickup' };
     showDriver(d, price);
     const start = [st.from[0] + rnd(-.012, .012), st.from[1] + rnd(-.015, .015)];
-    const appr = Z.route(start, st.from, 'moto', vehBy(st.veh).speed);
+    const appr = await Z.routeAsync(start, st.from, 'moto', vehBy(st.veh).speed);
+    if (!st.ride || st.livePeer) return;
     d.eta = Math.max(2, appr.min); st.drv.eta = d.eta;
     banner('toPickup');
     approachG = Z.drawRoute(layer, appr, { color: '#c084fc', dashed: true });
@@ -426,12 +486,21 @@ window.Passenger = (() => {
         st.drv.where = Z.addressOf(p.loc);
         const sp = vehBy(p.profile.veh).speed;
         if (trip.stage === 'toPickup') {
-          const r = Z.route(p.loc, st.from, 'moto', sp);
-          st.drv.eta = r.min;
-          approachG && layer.removeLayer(approachG);
-          approachG = Z.drawRoute(layer, r, { color: '#c084fc', dashed: true });
+          if (!Z.real.on || n - (st.apprUpd || 0) > 15000) {
+            st.apprUpd = n;
+            Z.routeAsync(p.loc, st.from, 'moto', sp).then(r => {
+              if (st.stage !== 'toPickup' || !st.ride) return;
+              st.drv.eta = r.min;
+              approachG && layer.removeLayer(approachG);
+              approachG = Z.drawRoute(layer, r, { color: '#c084fc', dashed: true });
+              banner('toPickup');
+            });
+          } else {
+            // между пересчётами: время по оставшемуся расстоянию
+            st.drv.eta = Math.max(1, Math.round(hav(p.loc, st.from) * 1.3 / sp * 60 * 1.25));
+          }
         } else if (approachG) { layer.removeLayer(approachG); approachG = null; }
-        if (trip.stage === 'riding') st.drv.left = Z.route(p.loc, st.to, 'moto', sp).min;
+        if (trip.stage === 'riding') st.drv.left = Z.real.on ? Math.max(1, Math.round(hav(p.loc, st.to) * 1.3 / sp * 60 * 1.25)) : Z.route(p.loc, st.to, 'moto', sp).min;
         banner(trip.stage);
       }
     }
@@ -508,10 +577,10 @@ window.Passenger = (() => {
   return {
     enter() {
       layer.addTo(map); backHome();
-      if (first) { first = false; $('#fromText').textContent = Z.addressOf(st.from); st.fromName = Z.addressOf(st.from); Account.whenSignedIn(() => locateMe(false)); }
+      if (first) { first = false; $('#fromText').textContent = Z.addressOf(st.from); st.fromName = Z.addressOf(st.from); Account.whenSignedIn(startGps); }
       publishRide();
     },
     leave() { T.clear(); endPick(); clearRoute(); st.ride = null; publishRide(); map.removeLayer(layer); $('#livePill').hidden = true; },
-    locate() { locateMe(true); },
+    locate() { locateMe(); },
   };
 })();

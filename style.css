@@ -397,3 +397,8 @@ html.theme-dark .profile-top button{color:#d8b4fe}
 .eta-sub{display:block;font-weight:500;color:#cfc3e6;font-size:12px;margin-top:3px}
 .row .ghost.sm{flex:none;width:auto}
 html.theme-dark .st-label{color:#8d86a3}
+.gps-meta{font-size:12px;color:var(--muted);margin:-6px 0 10px}
+.real-map .traffic-btn b::after{content:"";}
+.leaflet-control-attribution{font-size:9px;background:rgba(255,255,255,.7)!important;margin-top:calc(110px + env(safe-area-inset-top))!important}
+html.theme-dark .leaflet-control-attribution{background:rgba(0,0,0,.5)!important;color:#aaa}
+html.theme-dark .leaflet-control-attribution a{color:#c4b5fd}

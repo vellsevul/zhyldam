@@ -208,7 +208,7 @@ window.Z = (() => {
   let trafficOn = store.get('traffic', true);
   function setTraffic(on) {
     trafficOn = on; store.set('traffic', on);
-    if (on) { drawTraffic(); traffic.addTo(map); } else map.removeLayer(traffic);
+    if (on && !(typeof REAL !== 'undefined' && REAL.on)) { drawTraffic(); traffic.addTo(map); } else map.removeLayer(traffic);
     $('#trafficBtn').classList.toggle('on', on);
     paintScore();
   }
@@ -218,7 +218,7 @@ window.Z = (() => {
   }
   setTimeout(() => setTraffic(trafficOn));
   $('#trafficBtn').onclick = () => { setTraffic(!trafficOn); toast(trafficOn ? `🚦 Пробки: ${cityScore()} баллов` : 'Пробки скрыты'); };
-  setInterval(() => { updateJams(); if (trafficOn) drawTraffic(); paintScore(); }, 300000);
+  setInterval(() => { updateJams(); if (trafficOn && !REAL.on) drawTraffic(); paintScore(); }, 300000);
 
   // маршрут на карте: цветной по пробкам
   function drawRoute(layer, r, { color = '#9333ea', dashed = false } = {}) {
@@ -285,20 +285,139 @@ window.Z = (() => {
     return () => { pin.hidden = true; map.off('movestart', moving); map.off('moveend', moved); };
   }
 
-  // ---------- геолокация ----------
+  // ---------- геолокация: точный GPS ----------
+  const GEO_OPTS = { enableHighAccuracy: true, timeout: 10000, maximumAge: 5000 };
+  const fix = p => ({ ll: [p.coords.latitude, p.coords.longitude], acc: Math.round(p.coords.accuracy || 0), at: p.timestamp });
   function locate() {
     return new Promise(res => {
       try {
         if (!navigator.geolocation) return res(null);
-        navigator.geolocation.getCurrentPosition(
-          p => res([p.coords.latitude, p.coords.longitude]),
-          () => res(null),
-          { enableHighAccuracy: true, timeout: 5000, maximumAge: 60000 });
+        navigator.geolocation.getCurrentPosition(p => res(fix(p).ll), () => res(null), GEO_OPTS);
       } catch { res(null); }
     });
   }
+  // следить за GPS, пока страница открыта; onFix({ll, acc}), onFail(причина)
+  function watch(onFix, onFail) {
+    try {
+      if (!navigator.geolocation) { onFail && onFail('unsupported'); return () => {}; }
+      const id = navigator.geolocation.watchPosition(p => onFix(fix(p)), e => onFail && onFail(e && e.code === 1 ? 'denied' : 'unavailable'), GEO_OPTS);
+      return () => { try { navigator.geolocation.clearWatch(id); } catch {} };
+    } catch { onFail && onFail('unsupported'); return () => {}; }
+  }
   const inCity = p => p[0] > 43.15 && p[0] < 43.40 && p[1] > 76.78 && p[1] < 77.12;
 
+  // ---------- настоящая карта, маршруты и адреса (на своём хостинге) ----------
+  // Включается сам, если браузеру доступны тайлы OpenStreetMap/CARTO (на claude.ai они закрыты).
+  const REAL = { on: false };
+  const realFns = new Set();
+  let tiles = null;
+  const tileUrl = () => document.documentElement.classList.contains('theme-dark')
+    ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
+    : 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
+  function probeTiles() {
+    return new Promise(res => {
+      if (!/^https?:$/.test(location.protocol)) return res(false);
+      const img = new Image(), t = setTimeout(() => res(false), 5000);
+      img.onload = () => { clearTimeout(t); res(true); };
+      img.onerror = () => { clearTimeout(t); res(false); };
+      img.src = 'https://a.basemaps.cartocdn.com/rastertiles/voyager/0/0/0.png';
+    });
+  }
+  function enableReal() {
+    REAL.on = true;
+    map.removeLayer(base); map.removeLayer(labels); map.removeLayer(traffic);
+    map.setMaxBounds(null); map.setMinZoom(3);
+    tiles = L.tileLayer(tileUrl(), { maxZoom: 19, subdomains: 'abcd', attribution: '© OpenStreetMap · © CARTO · маршруты OSRM' }).addTo(map);
+    tiles.bringToBack();
+    L.control.attribution({ prefix: false, position: 'topright' }).addTo(map).addAttribution('© OpenStreetMap · © CARTO · OSRM');
+    try { new MutationObserver(() => tiles.setUrl(tileUrl())).observe(document.documentElement, { attributes: true, attributeFilter: ['class'] }); } catch {}
+    document.documentElement.classList.add('real-map');
+    realFns.forEach(f => { try { f(); } catch (e) { console.error(e); } });
+  }
+  probeTiles().then(ok => ok && enableReal());
+
+  const fetchJSON = async (url, ms = 7000) => {
+    const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), ms);
+    try { const r = await fetch(url, { signal: ctl.signal }); return r.ok ? await r.json() : null; } catch { return null; } finally { clearTimeout(t); }
+  };
+  // маршрут по настоящим дорогам (OSRM)
+  const routeCache = new Map();
+  async function osrm(from, to) {
+    const key = [from, to].map(p => p[0].toFixed(4) + ',' + p[1].toFixed(4)).join(';');
+    if (routeCache.has(key)) return routeCache.get(key);
+    const pr = fetchJSON(`https://router.project-osrm.org/route/v1/driving/${from[1]},${from[0]};${to[1]},${to[0]}?overview=full&geometries=geojson`).then(j => {
+      const r = j && j.routes && j.routes[0];
+      if (!r) { routeCache.delete(key); return null; }
+      return { pts: r.geometry.coordinates.map(c => [c[1], c[0]]), km: r.distance / 1000, carFree: r.duration / 60 };
+    });
+    routeCache.set(key, pr);
+    return pr;
+  }
+  // оценка пробок по пути: настоящих данных о пробках нет, берём модель по часу пик
+  const jamAlong = (from, to) => route(from, to, 'car', 40).jam;
+  async function routeAsync(from, to, kind = 'moto', speed = 42) {
+    if (!REAL.on) return route(from, to, kind, speed);
+    const r = await osrm(from, to);
+    if (!r) return route(from, to, kind, speed);
+    const jam = jamAlong(from, to);
+    const min = kind === 'car' ? r.carFree * (1 + jam * 1.8) : r.km / speed * 60 * 1.25 * (1 + jam * .3);
+    return { pts: [from, ...r.pts, to], km: r.km, min: Math.max(1, Math.round(min)), jam, score: Math.max(1, Math.min(10, Math.round(jam * 10))), real: true };
+  }
+  async function tripAsync(from, to, v) {
+    if (!REAL.on) return trip(from, to, v);
+    const m = await routeAsync(from, to, 'moto', v.speed);
+    if (!m.real) return trip(from, to, v);
+    const r = await osrm(from, to);
+    return { ...m, carMin: Math.max(1, Math.round(r.carFree * (1 + m.jam * 1.8))) };
+  }
+
+  // адреса (Nominatim): не чаще 1 запроса в секунду, с кэшем
+  const addrCache = new Map(), addrWait = new Map();
+  const akey = p => p[0].toFixed(4) + ',' + p[1].toFixed(4);
+  let addrBusy = false; const addrQueue = [];
+  function pumpAddr() {
+    if (addrBusy || !addrQueue.length) return;
+    addrBusy = true;
+    const [k, p] = addrQueue.pop(); addrQueue.length = Math.min(addrQueue.length, 2);
+    fetchJSON(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${p[0]}&lon=${p[1]}&zoom=18&addressdetails=1&accept-language=ru`).then(j => {
+      const a = j && j.address;
+      const road = a && (a.road || a.pedestrian || a.footway || a.neighbourhood || a.suburb);
+      const name = j && (j.name && j.name !== road ? j.name : '');
+      const txt = road ? [road, a.house_number].filter(Boolean).join(', ') + (name ? ` (${name})` : '') : (j && j.display_name ? j.display_name.split(',').slice(0, 2).join(',') : null);
+      addrCache.set(k, txt || null);
+      (addrWait.get(k) || []).forEach(f => f(txt || null)); addrWait.delete(k);
+    }).finally(() => setTimeout(() => { addrBusy = false; pumpAddr(); }, 1100));
+  }
+  function reverse(p) {
+    if (!REAL.on) return Promise.resolve(addressOf(p));
+    const k = akey(p);
+    if (addrCache.has(k)) return Promise.resolve(addrCache.get(k) || addressOf(p));
+    return new Promise(res => {
+      if (!addrWait.has(k)) { addrWait.set(k, []); addrQueue.push([k, p]); pumpAddr(); }
+      addrWait.get(k).push(txt => res(txt || `${p[0].toFixed(5)}, ${p[1].toFixed(5)}`));
+    });
+  }
+  // синхронно: настоящий адрес из кэша, если есть
+  const addressSync = p => {
+    if (!REAL.on) return addressOf(p);
+    const c = addrCache.get(akey(p));
+    if (c) return c;
+    reverse(p);
+    return `${p[0].toFixed(5)}, ${p[1].toFixed(5)}`;
+  };
+  async function search(q, near) {
+    if (!REAL.on || q.trim().length < 3) return [];
+    const c = near || DEFAULT_HOME, d = .25;
+    const j = await fetchJSON(`https://nominatim.openstreetmap.org/search?format=jsonv2&q=${encodeURIComponent(q)}&accept-language=ru&limit=6&addressdetails=1&viewbox=${c[1] - d},${c[0] + d},${c[1] + d},${c[0] - d}&bounded=1`);
+    return (j || []).map(x => {
+      const a = x.address || {};
+      const n = x.name || [a.road, a.house_number].filter(Boolean).join(', ') || x.display_name.split(',')[0];
+      return { n, a: x.display_name.split(',').slice(1, 3).join(',').trim(), ic: '📍', c: [+x.lat, +x.lon] };
+    });
+  }
+
   return { $, $$, DEFAULT_HOME, PLACES, VEHICLES, hav, fmt, round50, rnd, pick, vehBy, priceFor, store, toast, esc,
-    map, icon, animate, timers, route, setTraffic: on => setTraffic(on), trip, drawRoute, addressOf, cityScore, centerOn, startPicker, pickedLatLng, locate, inCity };
+    map, icon, animate, timers, route, routeAsync, trip, tripAsync, setTraffic: on => setTraffic(on), drawRoute,
+    addressOf: addressSync, reverse, search, cityScore, centerOn, startPicker, pickedLatLng, locate, watch, inCity,
+    real: REAL, onReal: f => { realFns.add(f); if (REAL.on) f(); } };
 })();

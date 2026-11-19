@@ -16,6 +16,7 @@ window.Driver = (() => {
 
   map.on('click', e => {
     if (!map.hasLayer(layer) || st.ride) return;
+    if (st.gpsOn) { toast('📡 Позиция берётся из GPS'); return; }
     st.pos = [e.latlng.lat, e.latlng.lng];
     me.setLatLng(st.pos); publish(); renderOrders();
     toast('📍 Ты здесь');
@@ -186,7 +187,7 @@ window.Driver = (() => {
   }
 
   // ---------- поездка ----------
-  function startRide(o, price) {
+  async function startRide(o, price) {
     T.clear();
     [...st.orders.keys()].forEach(removeOrder);
     st.ride = { ...o, final: price }; st.saved = null; st.lostAt = 0;
@@ -201,16 +202,41 @@ window.Driver = (() => {
 
     pickM = L.marker(o.from, { icon: icon('', 'mk-me pulse', [20, 20]) }).addTo(layer);
     destM = L.marker(o.to, { icon: icon('', 'mk-dest', [18, 18]) }).addTo(layer);
-    const v = vehBy(prof.veh);
-    st.ride.a = Z.route(st.pos, o.from, 'moto', v.speed);
-    st.ride.b = Z.trip(o.from, o.to, v);
+    const v = vehBy(prof.veh), ride = st.ride;
+    $('#dBanner').textContent = 'Строим маршрут…'; $('#dAction').disabled = true;
+    const [ra, rb] = await Promise.all([Z.routeAsync(st.pos, o.from, 'moto', v.speed), Z.tripAsync(o.from, o.to, v)]);
+    if (st.ride !== ride) return;
+    st.ride.a = ra; st.ride.b = rb;
     routeA = Z.drawRoute(layer, st.ride.a, { color: '#c084fc', dashed: true });
     routeB = Z.drawRoute(layer, st.ride.b);
     map.fitBounds(L.latLngBounds([...st.ride.a.pts, ...st.ride.b.pts]), { paddingTopLeft: [40, 110], paddingBottomRight: [40, Math.round(window.innerHeight * .55)] });
 
     stage('toPickup');
-    stopAnim = animate(me, st.ride.a.pts, 6000, () => stage('atPickup'), p => { st.pos = p; publishLoc(); });
+    if (!st.gpsOn) stopAnim = animate(me, st.ride.a.pts, 6000, () => stage('atPickup'), p => { st.pos = p; publishLoc(); });
   }
+  // ---------- настоящий GPS райдера ----------
+  let gpsT = 0;
+  function onGps({ ll, acc }) {
+    const first = !st.gpsOn;
+    st.gpsOn = true; st.acc = acc;
+    if (first) { toast(`📡 GPS включён, точность ±${acc} м`); stopAnim && stopAnim(); }
+    st.pos = ll; me.setLatLng(ll); publishLoc(); syncGpsMeta();
+    const r = st.ride; if (!r || !r.a) return;
+    const n = Date.now(); if (n - gpsT < 2000) return; gpsT = n;
+    const sp = vehBy(prof.veh).speed;
+    if (st.stage === 'toPickup') {
+      const left = hav(ll, r.from);
+      if (left < .06) return stage('atPickup');
+      r.a.min = Math.max(1, Math.round(left * 1.3 / sp * 60 * 1.25));
+      $('#dBanner').innerHTML = `🏍️ Едешь к пассажиру · <b>${esc(r.fromName)}</b> · ${(left * 1000).toFixed(0)} м · ${r.a.min} мин`;
+    } else if (st.stage === 'riding') {
+      const left = hav(ll, r.to);
+      if (left < .08) return stage('arrived');
+      $('#dBanner').innerHTML = `⚡ Мчим к <b>${esc(r.toName)}</b> · осталось ${left.toFixed(1)} км · ~${Math.max(1, Math.round(left * 1.3 / sp * 60 * 1.25))} мин`;
+    }
+  }
+  const syncGpsMeta = () => { const el = $('#dGps'); if (el) el.textContent = st.gpsOn ? `📡 GPS · ±${st.acc} м` : '📍 Демо-позиция: нажми на карту, чтобы переместиться'; };
+  Z.watch(onGps, () => { st.gpsOn = false; syncGpsMeta(); });
   let locT = 0;
   const publishLoc = () => { const n = performance.now(); if (n - locT > 120) { locT = n; publish(); } };
   function syncTags() {
@@ -222,19 +248,21 @@ window.Driver = (() => {
   function stage(s) {
     const r = st.ride; st.stage = s;
     const btn = $('#dAction'); btn.disabled = false;
-    if (s === 'toPickup') { $('#dBanner').innerHTML = `🏍️ Едешь к пассажиру · <b>${esc(r.fromName)}</b> · ${r.a.min} мин`; btn.textContent = 'В пути к пассажиру…'; btn.disabled = true; }
+    if (s === 'toPickup') { $('#dBanner').innerHTML = `🏍️ Едешь к пассажиру · <b>${esc(r.fromName)}</b> · ${r.a.min} мин`; btn.textContent = st.gpsOn ? 'Я на месте' : 'В пути к пассажиру…'; btn.disabled = !st.gpsOn; }
     else if (s === 'atPickup') { $('#dBanner').innerHTML = `📍 Ты на точке. Достань шлем 🪖 и сообщи ${esc(r.name)}, что приехал`; btn.textContent = 'Я на месте'; }
     else if (s === 'waiting') { $('#dBanner').innerHTML = `🪖 Дай пассажиру шлем и проверь застёжку`; btn.textContent = 'Пассажир в шлеме, поехали'; }
     else if (s === 'riding') {
       $('#dBanner').innerHTML = `⚡ Мчим к <b>${esc(r.toName)}</b> · ${r.b.km.toFixed(1)} км · ${r.b.min} мин`;
-      btn.textContent = 'В пути…'; btn.disabled = true;
+      btn.textContent = st.gpsOn ? 'Приехали' : 'В пути…'; btn.disabled = !st.gpsOn;
       layer.removeLayer(routeA); layer.removeLayer(pickM);
-      stopAnim = animate(me, r.b.pts, 9000, () => stage('arrived'), p => { st.pos = p; publishLoc(); });
+      if (!st.gpsOn) stopAnim = animate(me, r.b.pts, 9000, () => stage('arrived'), p => { st.pos = p; publishLoc(); });
     } else if (s === 'arrived') { $('#dBanner').innerHTML = `🏁 Вы на месте: <b>${esc(r.toName)}</b>. Забери шлем`; btn.textContent = `Завершить · получить ${fmt(r.final)}`; }
     publish();
   }
   $('#dAction').onclick = () => {
-    if (st.stage === 'atPickup') stage('waiting');
+    if (st.stage === 'toPickup' && st.gpsOn) stage('atPickup');
+    else if (st.stage === 'riding' && st.gpsOn) stage('arrived');
+    else if (st.stage === 'atPickup') stage('waiting');
     else if (st.stage === 'waiting') stage('riding');
     else if (st.stage === 'arrived') finish();
   };
@@ -316,7 +344,7 @@ window.Driver = (() => {
 
   return {
     enter() {
-      layer.addTo(map); syncDrawer(); renderSetup(); syncEarn();
+      layer.addTo(map); syncDrawer(); renderSetup(); syncEarn(); syncGpsMeta();
       Z.centerOn(st.pos, 14);
       if (st.ride) go('trip'); else if (prof.helmet && store.get('driver')) { go('online'); setOnline(true); } else go('setup');
     },
