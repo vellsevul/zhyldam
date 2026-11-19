@@ -307,30 +307,27 @@ window.Z = (() => {
   const inCity = p => p[0] > 43.15 && p[0] < 43.40 && p[1] > 76.78 && p[1] < 77.12;
 
   // ---------- настоящая карта, маршруты и адреса (на своём хостинге) ----------
-  // Включается сам, если браузеру доступны тайлы OpenStreetMap/CARTO (на claude.ai они закрыты).
+  // Включается сам, если браузеру доступны тайлы OpenStreetMap (на claude.ai они закрыты). Ключ не нужен.
   const REAL = { on: false };
   const realFns = new Set();
   let tiles = null;
-  const tileUrl = () => document.documentElement.classList.contains('theme-dark')
-    ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
-    : 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
+  const tileUrl = () => 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
   function probeTiles() {
     return new Promise(res => {
       if (!/^https?:$/.test(location.protocol)) return res(false);
       const img = new Image(), t = setTimeout(() => res(false), 5000);
       img.onload = () => { clearTimeout(t); res(true); };
       img.onerror = () => { clearTimeout(t); res(false); };
-      img.src = 'https://a.basemaps.cartocdn.com/rastertiles/voyager/0/0/0.png';
+      img.src = 'https://tile.openstreetmap.org/0/0/0.png';
     });
   }
   function enableReal() {
     REAL.on = true;
     map.removeLayer(base); map.removeLayer(labels); map.removeLayer(traffic);
     map.setMaxBounds(null); map.setMinZoom(3);
-    tiles = L.tileLayer(tileUrl(), { maxZoom: 19, subdomains: 'abcd', attribution: '© OpenStreetMap · © CARTO · маршруты OSRM' }).addTo(map);
+    tiles = L.tileLayer(tileUrl(), { maxZoom: 19, attribution: '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> · маршруты OSRM' }).addTo(map);
     tiles.bringToBack();
-    L.control.attribution({ prefix: false, position: 'topright' }).addTo(map).addAttribution('© OpenStreetMap · © CARTO · OSRM');
-    try { new MutationObserver(() => tiles.setUrl(tileUrl())).observe(document.documentElement, { attributes: true, attributeFilter: ['class'] }); } catch {}
+    L.control.attribution({ prefix: false, position: 'topright' }).addTo(map);
     document.documentElement.classList.add('real-map');
     realFns.forEach(f => { try { f(); } catch (e) { console.error(e); } });
   }

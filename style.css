@@ -402,3 +402,5 @@ html.theme-dark .st-label{color:#8d86a3}
 .leaflet-control-attribution{font-size:9px;background:rgba(255,255,255,.7)!important;margin-top:calc(110px + env(safe-area-inset-top))!important}
 html.theme-dark .leaflet-control-attribution{background:rgba(0,0,0,.5)!important;color:#aaa}
 html.theme-dark .leaflet-control-attribution a{color:#c4b5fd}
+/* тёмная тема для тайлов OpenStreetMap */
+html.theme-dark.real-map .leaflet-tile-pane{filter:invert(1) hue-rotate(180deg) brightness(.85) contrast(.9) saturate(.6)}
