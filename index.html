@@ -5,29 +5,33 @@
 <link rel="icon" href="logo.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="logo.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Rubik:wght@400;500;600;700;800&family=Balsamiq+Sans:wght@700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
 <link rel="stylesheet" href="style.css">
 
 <div id="app" class="mode-passenger">
   <div id="map"></div>
+  <div class="center-pin" id="centerPin" hidden><i></i></div>
 
   <header class="topbar">
     <button class="icon-btn" id="menuBtn" aria-label="Меню">☰</button>
     <div class="logo"><img src="logo.svg" alt=""><span>zhyldam</span><em class="role-tag">райдер</em></div>
     <button class="icon-btn" id="locateBtn" aria-label="Моё местоположение">◎</button>
   </header>
+  <button class="traffic-btn" id="trafficBtn" aria-label="Пробки">🚦<b>–</b></button>
+  <div class="live-pill" id="livePill" hidden></div>
 
   <aside class="drawer" id="drawer">
-    <div class="drawer-head">
+    <div class="drawer-head" id="drawerHead">
       <div class="avatar" id="drawerAvatar">A</div>
       <div><b id="drawerName">Пассажир</b><small id="drawerSub">★ 4.95</small></div>
     </div>
     <button class="dr-item role-switch" id="roleSwitch">🏍️ Стать райдером</button>
-    <button class="dr-item">🕑 Мои поездки</button>
-    <button class="dr-item">💳 Оплата</button>
-    <button class="dr-item">🪖 Безопасность</button>
-    <button class="dr-item">⚙️ Настройки</button>
+    <button class="dr-item" data-panel="history">🕑 История поездок</button>
+    <button class="dr-item" data-panel="pay">💳 Оплата</button>
+    <button class="dr-item" data-panel="support">🎧 Служба поддержки</button>
+    <button class="dr-item" data-panel="safety">🪖 Безопасность</button>
+    <button class="dr-item" data-panel="settings">⚙️ Настройки</button>
     <p class="drawer-foot"><img src="logo.svg" alt="" width="28">Zhyldam: «быстрый» по-казахски</p>
   </aside>
   <div class="scrim" id="scrim"></div>
@@ -41,12 +45,21 @@
       <div class="route-inputs">
         <div class="dot-line"><i class="d1"></i><i class="ln"></i><i class="d2"></i></div>
         <div class="fields">
-          <input id="fromInput" value="Моё местоположение" readonly aria-label="Откуда">
+          <button class="field-btn" id="fromBtn"><small>Откуда</small><span id="fromText">Определяем, где ты…</span><em>✎</em></button>
           <input id="toInput" placeholder="Куда?" autocomplete="off" aria-label="Куда">
         </div>
       </div>
+      <button class="map-pick" id="pickToBtn">📌 Указать на карте</button>
       <div class="suggest" id="suggest"></div>
-      <p class="hint">или нажми на карту, чтобы выбрать точку</p>
+    </div>
+
+    <div class="step" data-step="pick">
+      <div class="step-head">
+        <button class="back" id="pickBack" aria-label="Назад">←</button>
+        <div class="trip-sum"><b id="pickTitle">Откуда заберём?</b><small>Двигай карту, пин покажет точку</small></div>
+      </div>
+      <div class="pick-addr"><i id="pickDot"></i><span id="pickAddr">—</span></div>
+      <button class="cta" id="pickDone">Готово</button>
     </div>
 
     <div class="step" data-step="choose">
@@ -69,9 +82,13 @@
         </div>
         <div class="bb-warn" id="bbWarn"></div>
       </div>
+      <label class="share-row">
+        <span><b>📍 Показать райдеру, где я</b><small>Райдер увидит тебя на карте до конца поездки. Его ты видишь всегда</small></span>
+        <input type="checkbox" id="shareChk" class="switch">
+      </label>
       <div class="pay-row">
         <button class="pay" id="payBtn">💵 Наличные ▾</button>
-        <label class="chk"><input type="checkbox" id="helmetChk" checked> 🪖 Нужен шлем</label>
+        <span class="helmet-note">🪖 Шлем привезёт райдер</span>
       </div>
       <button class="cta" id="orderBtn">Заказать</button>
     </div>
@@ -79,7 +96,7 @@
     <div class="step" data-step="search">
       <div class="search-anim"><span></span><span></span><span></span><b><img src="logo.svg" alt="" width="56"></b></div>
       <h3>Ищем ближайшего райдера…</h3>
-      <p class="muted">Фиксированная цена: первый свободный уже едет</p>
+      <p class="muted" id="searchSub">Фиксированная цена: первый свободный уже едет</p>
       <div class="progress"><i id="searchBar"></i></div>
       <button class="ghost" id="cancelSearch">Отменить</button>
     </div>
@@ -106,11 +123,12 @@
         </div>
         <div class="plate" id="drvPlate">—</div>
       </div>
+      <div class="share-note" id="shareNote"></div>
       <div class="price-line"><span>Стоимость</span><b id="drvPrice">0 ₸</b></div>
       <div class="actions">
-        <button class="act">📞<small>Позвонить</small></button>
-        <button class="act">💬<small>Чат</small></button>
-        <button class="act">🛡️<small>Безопасность</small></button>
+        <button class="act" id="drvCall">📞<small>Позвонить</small></button>
+        <button class="act" id="drvChat">💬<small>Чат</small></button>
+        <button class="act" data-panel="safety">🛡️<small>Безопасность</small></button>
         <button class="act danger" id="cancelRide">✕<small>Отмена</small></button>
       </div>
       <div class="confirm" id="cancelConfirm" hidden>
@@ -122,11 +140,14 @@
 
     <div class="step" data-step="done">
       <div class="done-ico">🏁</div>
-      <h3>Домчали! Ты на месте</h3>
+      <h3 class="comic">Домчали! Ты на месте</h3>
       <p class="muted" id="doneSub">—</p>
       <div class="stars" id="stars"><b>★</b><b>★</b><b>★</b><b>★</b><b>★</b></div>
-      <div class="tips"><button>200 ₸</button><button>500 ₸</button><button>1000 ₸</button></div>
-      <button class="cta" id="doneBtn">Готово</button>
+      <div class="tips"><button data-tip="200">200 ₸</button><button data-tip="500">500 ₸</button><button data-tip="1000">1000 ₸</button></div>
+      <div class="two">
+        <button class="ghost" id="receiptBtn">🧾 Чек</button>
+        <button class="cta" id="doneBtn">Готово</button>
+      </div>
     </div>
   </section>
 
@@ -141,6 +162,10 @@
       <label class="fld"><span>Модель байка</span><input id="dBike" maxlength="40"></label>
       <div class="fld"><span>Класс</span><div class="chips" id="dVeh"></div></div>
       <label class="fld"><span>Госномер</span><input id="dPlate" maxlength="16"></label>
+      <label class="helmet-req" id="dHelmetRow">
+        <input type="checkbox" id="dHelmet" class="switch">
+        <span><b>🪖 У меня есть запасной шлем для пассажира</b><small>Обязательно: без шлема для пассажира выходить на линию нельзя</small></span>
+      </label>
       <button class="cta" id="dStart">Выйти на линию</button>
     </div>
 
@@ -149,6 +174,7 @@
         <button class="online-toggle on" id="dOnline"><i></i><span>На линии</span></button>
         <div class="earn"><b id="dEarn">0 ₸</b><small id="dTrips">0 поездок сегодня</small></div>
       </div>
+      <div class="helmet-remind">🪖 Запасной шлем для пассажира с собой? Без него заказ брать нельзя.</div>
       <div class="d-orders-head"><b>Заказы рядом</b><small id="dOrdersMeta">ищем пассажиров…</small></div>
       <div class="orders" id="dOrders"></div>
     </div>
@@ -166,9 +192,10 @@
       </div>
       <div class="trip-tags" id="pTags"></div>
       <button class="cta" id="dAction">—</button>
-      <div class="actions three">
-        <button class="act">📞<small>Позвонить</small></button>
-        <button class="act">💬<small>Чат</small></button>
+      <div class="actions">
+        <button class="act" id="pCall">📞<small>Позвонить</small></button>
+        <button class="act" id="pChat">💬<small>Чат</small></button>
+        <button class="act" data-panel="support">🎧<small>Поддержка</small></button>
         <button class="act danger" id="dCancel">✕<small>Отмена</small></button>
       </div>
       <div class="confirm" id="dCancelConfirm" hidden>
@@ -180,17 +207,60 @@
 
     <div class="dstep" data-dstep="done">
       <div class="done-ico">💸</div>
-      <h3 id="dDoneTitle">+0 ₸</h3>
+      <h3 class="comic" id="dDoneTitle">+0 ₸</h3>
       <p class="muted" id="dDoneSub">—</p>
       <div class="stars static"><b class="on">★</b><b class="on">★</b><b class="on">★</b><b class="on">★</b><b class="on">★</b></div>
-      <button class="cta" id="dDoneBtn">К заказам</button>
+      <div class="two">
+        <button class="ghost" id="dReceiptBtn">🧾 Чек</button>
+        <button class="cta" id="dDoneBtn">К заказам</button>
+      </div>
     </div>
   </section>
 
+  <!-- ============ ПАНЕЛИ (история, оплата, поддержка, настройки) ============ -->
+  <section class="panel" id="panel" hidden>
+    <header class="panel-head">
+      <button class="back" id="panelBack" aria-label="Назад">←</button>
+      <b id="panelTitle">—</b>
+    </header>
+    <div class="panel-body" id="panelBody"></div>
+  </section>
+
+  <!-- ============ ВХОД ============ -->
+  <section class="auth" id="auth" hidden>
+    <div class="auth-hero">
+      <img src="logo.svg" alt="" width="96">
+      <h1>zhyldam</h1>
+      <p>Мото-такси, когда надо быстро</p>
+    </div>
+    <div class="auth-card">
+      <div class="auth-tabs" id="authTabs">
+        <button data-tab="login" class="on">Вход</button>
+        <button data-tab="register">Регистрация</button>
+      </div>
+      <form id="authForm" novalidate>
+        <label class="fld" id="nameFld" hidden><span>Имя</span><input id="authName" autocomplete="name" maxlength="30"></label>
+        <label class="fld"><span>Телефон или email</span><input id="authLogin" autocomplete="username" placeholder="+7 777 123 45 67"></label>
+        <label class="fld"><span>Пароль</span><input id="authPass" type="password" autocomplete="current-password" placeholder="минимум 6 символов"></label>
+        <p class="auth-err" id="authErr"></p>
+        <button class="cta" id="authSubmit" type="submit">Войти</button>
+      </form>
+      <div class="auth-or"><span>или</span></div>
+      <div class="auth-social">
+        <button class="social" data-provider="google"><b class="g">G</b> Войти через Google</button>
+        <button class="social" data-provider="apple"><b></b> Войти через Apple</button>
+      </div>
+      <p class="auth-note">Черновик: аккаунт хранится только в этом браузере, пароль сохраняется в виде хэша. Вход через Google и Apple пока имитируется.</p>
+    </div>
+  </section>
+
+  <input type="file" id="avatarFile" accept="image/*" hidden>
   <div class="toast" id="toast"></div>
 </div>
 
 <script src="vendor/leaflet/leaflet.js"></script>
 <script src="map.js"></script>
+<script src="live.js"></script>
+<script src="account.js"></script>
 <script src="app.js"></script>
 <script src="driver.js"></script>
