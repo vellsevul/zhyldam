@@ -110,7 +110,7 @@
     st.km = hav(HOME, p.c) * 1.3; // дорога длиннее прямой
     resetRoute();
     destMarker = L.marker(p.c, { icon: icon('', 'mk-dest', [18, 18]) }).addTo(map);
-    routeLine = L.polyline(curve(HOME, p.c), { color: '#000', weight: 5, opacity: .85 }).addTo(map);
+    routeLine = L.polyline(curve(HOME, p.c), { color: '#7c3aed', weight: 6, opacity: .9 }).addTo(map);
     map.fitBounds(routeLine.getBounds(), { paddingTopLeft: [40, 90], paddingBottomRight: [40, window.innerHeight * .6] });
     $('#tripTo').textContent = p.n;
     $('#tripMeta').textContent = `${st.km.toFixed(1)} км · мото обгоняет пробки 🚦`;

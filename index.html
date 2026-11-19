@@ -3,7 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#000000">
+<meta name="theme-color" content="#0a0a0a">
+<link rel="icon" href="logo.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="logo.svg">
 <title>Zhyldam — мото-такси</title>
 <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -17,7 +19,7 @@
   <!-- top bar -->
   <header class="topbar">
     <button class="icon-btn" id="menuBtn" aria-label="Меню">☰</button>
-    <div class="logo">zhyldam<span>⚡</span></div>
+    <div class="logo"><img src="logo.svg" alt=""><span>zhyldam</span></div>
     <button class="icon-btn" id="locateBtn" aria-label="Моё местоположение">◎</button>
   </header>
 
@@ -32,7 +34,7 @@
     <a>🪖 Безопасность</a>
     <a>🏍️ Стать водителем</a>
     <a>⚙️ Настройки</a>
-    <p class="drawer-foot">Zhyldam — «быстрый» по-казахски</p>
+    <p class="drawer-foot"><img src="logo.svg" alt="" width="28" style="vertical-align:middle;margin-right:6px">Zhyldam — «быстрый» по-казахски</p>
   </aside>
   <div class="scrim" id="scrim"></div>
 
@@ -42,7 +44,7 @@
 
     <!-- STEP: home -->
     <div class="step" data-step="home">
-      <h2 class="greet">Куда мчим? 🏍️</h2>
+      <h2 class="greet">Куда мчим? <img src="logo.svg" alt="" width="30" style="vertical-align:-5px;border-radius:8px"></h2>
       <div class="route-inputs">
         <div class="dot-line"><i class="d1"></i><i class="ln"></i><i class="d2"></i></div>
         <div class="fields">
@@ -89,7 +91,7 @@
 
     <!-- STEP: searching (fast) -->
     <div class="step" data-step="search">
-      <div class="search-anim"><span></span><span></span><span></span><b>🏍️</b></div>
+      <div class="search-anim"><span></span><span></span><span></span><b><img src="logo.svg" alt="" width="56"></b></div>
       <h3 id="searchTitle">Ищем ближайшего райдера…</h3>
       <p class="muted" id="searchSub">Обычно это занимает пару секунд</p>
       <div class="progress"><i id="searchBar"></i></div>
